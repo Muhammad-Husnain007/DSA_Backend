@@ -21,7 +21,7 @@ import userRouter from './routes/user.routes.js'
 import paymentRouter from './routes/payment.routes.js'
 
 app.use("/api/v1/user", userRouter)
-app.use("/api/v1/payment", userRouter)
+app.use("/api/v1/payment", paymentRouter)
 
 
 export { app }

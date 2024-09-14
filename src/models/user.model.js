@@ -47,7 +47,7 @@ const userSchema = new Schema({
     refreshToken: {
       type: String,
   },
-    versionKey: false  // __v field ko disable karta hai
+    // versionKey: false  // __v field ko disable karta hai
   
 }, {timestamps: true});
 

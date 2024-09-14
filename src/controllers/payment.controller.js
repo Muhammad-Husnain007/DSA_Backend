@@ -7,42 +7,48 @@ import stripe from '../utils/stripe.js'; // Stripe configuration ko import karei
 
 const createPayment = asyncHandler(async (req, res) => {
     try {
-        const { userId, amount } = req.body;
+      const { amount, currency, userId } = req.body;
+      const findUser = await User.findById(userId);
+      
+      if (!findUser) {
+         throw new ApiError(400, "User not found");
+      }
 
-        if (!userId || !amount) {
-            throw new ApiError(400, "User ID and amount are required");
-        }
-
-        const user = await User.findById(userId);
-        if (!user) {
-            throw new ApiError(404, 'User not found');
-        }
-
-        const paymentIntent = await stripe.paymentIntents.create({
-            amount: amount, // Amount in cents
-            currency: 'usd',
-            customer: user.stripeCustomerId, // Stripe Customer ID
-            payment_method_types: ['card']
-        });
-
-        const payment = new Payment({
-            userId: user._id,
-            amount: amount,
-            stripePaymentIntentId: paymentIntent.id,
-            status: 'pending'
-        });
-
-        await payment.save();
-
-        return res.status(200).json(
-            new ApiResponse(200, { clientSecret: paymentIntent.client_secret }, "Payment Intent Created Successfully")
-        );
+      const customer = await stripe.customers.create();
+      const ephemeralKey = await stripe.ephemeralKeys.create(
+        {customer: customer.id},
+        {apiVersion: '2024-06-20'}
+      );
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: amount,
+        currency: currency,
+        customer: customer.id,
+        // In the latest version of the API, specifying the `automatic_payment_methods` parameter
+        // is optional because Stripe enables its functionality by default.
+        automatic_payment_methods: {
+          enabled: true,
+        },
+      });
+ 
+      await Payment.create({
+        amount,
+        currency,
+        userId,
+        stripePaymentIntentId: paymentIntent.client_secret,
+      });
+    
+      res.json({
+        paymentIntent: paymentIntent.client_secret,
+        ephemeralKey: ephemeralKey.secret,
+        customer: customer.id,
+        publishableKey: 'pk_test_51Pyorb06YJZjlwg0XycprfIoOOObTV3QeXNz90sx9ft08Qc19PmNtCrFVheN5iRjILFqDazGGtbBtl5GikCOBgZn00C8C7IOuO'
+      });
+    
     } catch (error) {
-        console.error('Payment Error:', error);
-        return res.status(500).json(
-            new ApiError(500, error.message || 'Payment failed')
-        );
+      throw new ApiError(500, error?.message, "Something went wrong");
     }
-});
+ });
+ 
+ 
 
 export { createPayment };
